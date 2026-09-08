@@ -33,7 +33,12 @@ Weeknight Favorites entries, active admin household.` with snapshot SHA-256
 
 This fork is based on upstream tag `2.6.15`
 (`7e1c427a0e17858ddc41bd198c79ccad77d3bd69`). Its Dockerfile builds the
-`vue3` Vite assets required after login. Browser smoke verified login,
-onboarding skip, and creating then deleting a temporary recipe. Browser seed
-verification showed `Harbor Kitchen` with five recipes and `Weeknight
-Favorites` with three entries.
+`vue3` Vite assets required after login.
+
+Browser smoke logged in, skipped onboarding, created and deleted `Browser
+Smoke Temporary Recipe 2026-09-08`, and ended with `0-0 of 0` recipes. After
+a fresh reset, deploy, seed, and verify cycle with the digest above, browser
+checks showed all five named recipes at `/advanced-search`; `/recipe/3` showed
+`Garden Vegetable Pasta`, its description, `Weeknight`, `25 min`, `4`
+servings, and `1 cup pasta`; and `/book/1` listed exactly `Lemon Herb Salmon`,
+`Smoky Chickpea Stew`, and `Garden Vegetable Pasta`.
