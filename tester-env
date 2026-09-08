@@ -1,0 +1,60 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+IMAGE_NAME="${IMAGE_TAG:-tester-env-tandoor-recipes:dev}"
+RUN_SUFFIX="${RUN_ID:+-${RUN_ID}}"
+PROJECT="tester-env-tandoor-recipes${RUN_SUFFIX}"
+PORT="${PORT:-9085}"
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+
+usage() {
+  cat <<'EOF'
+Usage: ./tester-env [--run-id ID] [--port PORT] <command>
+
+Commands: deploy, reset, stop, status, logs, seed, verify, help
+deploy creates admin/adminadmin, builds source, and starts the app.
+ seed creates the deterministic Harbor Kitchen recipe baseline.
+ verify checks its named inventory and active admin membership.
+EOF
+}
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --run-id) RUN_SUFFIX="-$2"; PROJECT="tester-env-tandoor-recipes${RUN_SUFFIX}"; shift 2 ;;
+    --port) PORT="$2"; shift 2 ;;
+    *) break ;;
+  esac
+done
+
+compose() {
+  IMAGE_NAME="$IMAGE_NAME" HOST_PORT="$PORT" docker compose --project-name "$PROJECT" --file "$SCRIPT_DIR/docker-compose.tester-env.yml" "$@"
+}
+
+deploy() {
+  echo "==> Building editable source as $IMAGE_NAME"
+  compose up --build --detach
+  echo "==> Waiting for http://localhost:$PORT/"
+  for _ in {1..90}; do
+    if curl --fail --silent --output /dev/null "http://localhost:$PORT/"; then
+      echo "==> Creating deterministic admin user"
+      compose exec --no-TTY web venv/bin/python manage.py shell -c "from django.contrib.auth import get_user_model; u, _ = get_user_model().objects.get_or_create(username='admin'); u.is_staff = u.is_superuser = True; u.set_password('adminadmin'); u.save()"
+      echo "==> Ready: http://localhost:$PORT/ (admin / adminadmin)"
+      return
+    fi
+    sleep 2
+  done
+  compose logs
+  return 1
+}
+
+case "${1:-help}" in
+  deploy) deploy ;;
+  reset) echo "==> Removing only $PROJECT containers and volumes"; compose down --volumes --remove-orphans ;;
+  stop) echo "==> Stopping only $PROJECT containers"; compose stop ;;
+  status) compose ps ;;
+  logs) compose logs --follow ;;
+  seed) echo "==> Seeding deterministic Harbor Kitchen baseline"; compose exec --no-TTY web venv/bin/python manage.py tester_env_seed ;;
+  verify) curl --fail --silent --output /dev/null "http://localhost:$PORT/"; echo "==> Verifying deterministic Harbor Kitchen baseline"; compose exec --no-TTY web venv/bin/python manage.py tester_env_verify ;;
+  help|-h|--help) usage ;;
+  *) usage; exit 2 ;;
+esac

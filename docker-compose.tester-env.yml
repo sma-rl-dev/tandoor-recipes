@@ -1,0 +1,46 @@
+services:
+  db:
+    image: postgres:16-alpine
+    network_mode: bridge
+    environment:
+      POSTGRES_DB: tandoor
+      POSTGRES_USER: tandoor
+      POSTGRES_PASSWORD: tandoor
+    volumes:
+      - postgres:/var/lib/postgresql/data
+    ports:
+      - "127.0.0.1:${DB_PORT:-55432}:5432"
+      - "${HOST_PORT:-9085}:80"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U tandoor -d tandoor"]
+      interval: 2s
+      timeout: 2s
+      retries: 30
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: ${IMAGE_NAME:?IMAGE_NAME must be set}
+    network_mode: service:db
+    environment:
+      SECRET_KEY: tester-env-tandoor-recipes-not-for-production
+      ALLOWED_HOSTS: localhost,127.0.0.1,host.docker.internal
+      DB_ENGINE: django.db.backends.postgresql
+      POSTGRES_HOST: 127.0.0.1
+      POSTGRES_PORT: "5432"
+      POSTGRES_DB: tandoor
+      POSTGRES_USER: tandoor
+      POSTGRES_PASSWORD: tandoor
+      TZ: UTC
+    volumes:
+      - static:/opt/recipes/staticfiles
+      - media:/opt/recipes/mediafiles
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  postgres:
+  static:
+  media:

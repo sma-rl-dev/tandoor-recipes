@@ -27,8 +27,13 @@ RUN apk add --no-cache --virtual .build-deps gcc musl-dev postgresql-dev zlib-de
     venv/bin/pip install -r requirements.txt --no-cache-dir &&\
     apk --purge del .build-deps
 
+COPY vue3/package.json vue3/package-lock.json ./vue3/
+RUN cd vue3 && npm ci
+
 #Copy project and execute it.
 COPY . ./
+
+RUN cd vue3 && npm run build
 
 RUN <<EOF
     # delete default nginx config and link it to tandoors config
